@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#FFFFFF">
+  <meta name="remote-panel-version" content="5">
+  <title>远程任务面板</title>
+  <link rel="stylesheet" href="/panel.css">
+  <script src="/panel.js" type="module"></script>
+</head>
+<body>
+  <!-- Login / Pairing View -->
+  <section id="login-view" class="login-shell" aria-labelledby="login-title">
+    <div class="login-card liquid-glass-heavy">
+      <div class="login-brand">
+        <span class="brand-dot lg" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M7 17L17 7M7 7h10v10"/></svg>
+        </span>
+        <div>
+          <h1 id="login-title">连接你的电脑</h1>
+          <p class="subtitle">输入电脑窗口显示的配对码即可直接操控 Codex</p>
+        </div>
+      </div>
+      <form id="login-form" class="login-form">
+        <label class="field-label" for="code">配对码</label>
+        <input id="code" class="code-input" type="password" inputmode="numeric" maxlength="32" placeholder="输入配对码" spellcheck="false" autocapitalize="none" autocomplete="off" required>
+        <button id="login-submit" type="submit" class="pill-btn primary btn-block">连接电脑</button>
+      </form>
+      <p id="login-error" class="form-error" role="alert" hidden></p>
+      <div class="login-footer">
+        <span id="login-connection" class="meta-muted">尚未连接</span>
+        <button id="login-change-host" type="button" class="btn-inline" hidden>更换电脑地址</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Main App Shell (Phone Slide-Over Drawer / 11" Dual-Column / 13" Triple-Column) -->
+  <div id="panel" class="app-shell" hidden>
+    <div id="drawer-backdrop" class="drawer-backdrop"></div>
+
+    <!-- LEFT SIDEBAR (iPhone Drawer on < 768px; Pinned Sidebar on >= 768px) -->
+    <aside id="sidebar" class="sidebar" aria-label="任务与会话侧栏">
+      <div class="sidebar-top">
+        <div class="sidebar-brand">
+          <span class="brand-dot" aria-hidden="true">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M7 17L17 7M7 7h10v10"/></svg>
+          </span>
+          <span>远程操控</span>
+        </div>
+        <button id="drawer-close" type="button" class="drawer-close-btn" aria-label="关闭侧栏">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <button id="sidebar-new" type="button" class="sidebar-new-btn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+        <span>开启新任务</span>
+      </button>
+
+      <!-- Pending Approvals Quick Strip inside Drawer -->
+      <button id="list-approval-strip" type="button" class="approval-strip" hidden>
+        <span class="status-dot waiting"></span>
+        <span id="list-approval-text" class="approval-strip-text">有待审批操作</span>
+        <span>处理 →</span>
+      </button>
+
+      <!-- Clean Dual Tabs inside Drawer: 面板任务 / Codex 会话 -->
+      <div class="drawer-tabs" role="tablist">
+        <button type="button" class="drawer-tab" data-sidebar-tab="tasks" aria-selected="true">面板任务</button>
+        <button type="button" class="drawer-tab" data-sidebar-tab="codex" aria-selected="false">Codex 会话</button>
+      </div>
+
+      <!-- Tasks List -->
+      <div id="sidebar-tasks-pane" class="sidebar-scroll">
+        <p id="tasks-list-state" class="list-state" hidden></p>
+        <ul id="task-list" class="nav-list"></ul>
+        <button id="more-tasks" type="button" class="more-link" hidden>加载更早的任务</button>
+      </div>
+
+      <!-- Codex Threads List -->
+      <div id="sidebar-codex-pane" class="sidebar-scroll" hidden>
+        <form id="thread-search" class="sidebar-search">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>
+          <input id="thread-query" type="search" aria-label="搜索会话" placeholder="搜索电脑上的 Codex 会话" maxlength="180">
+        </form>
+        <div class="threads-meta-row">
+          <label class="toggle-check"><input id="archived" type="checkbox"><span>含已归档</span></label>
+          <button id="refresh-threads" type="button" class="btn-inline">刷新</button>
+        </div>
+        <p id="threads-feedback" class="list-state" role="status"></p>
+        <ul id="thread-list" class="nav-list"></ul>
+        <button id="more-threads" type="button" class="more-link" hidden>加载更多会话</button>
+      </div>
+
+      <div class="sidebar-footer">
+        <button id="settings-trigger" type="button" class="pc-badge" aria-haspopup="dialog" aria-expanded="false" aria-controls="settings-dialog" aria-label="连接与设置">
+          <span class="pc-avatar" aria-hidden="true">PC</span>
+          <span class="pc-info">
+            <span class="pc-name">我的电脑</span>
+            <span id="connection" class="pc-status">● 尚未连接</span>
+          </span>
+          <svg class="pc-gear" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </button>
+      </div>
+    </aside>
+
+    <!-- Connection & Settings Dialog (opened from sidebar footer) -->
+    <div id="settings-dialog" class="settings-dialog liquid-glass-heavy" role="dialog" aria-modal="true" aria-labelledby="settings-title" hidden>
+      <div class="settings-head">
+        <h3 id="settings-title">连接与设置</h3>
+        <button id="settings-close" type="button" class="icon-btn sm" aria-label="关闭设置">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <p class="settings-label">执行引擎</p>
+      <div class="popover-option settings-row" aria-disabled="true">
+        <div>
+          <div id="settings-engine-codex" class="popover-opt-title">Codex</div>
+          <div class="popover-opt-sub">操控本地项目与执行命令</div>
+        </div>
+        <span class="popover-check">✓</span>
+      </div>
+      <div class="popover-option settings-row" aria-disabled="true">
+        <div>
+          <div class="popover-opt-title">DeepSeek Harness · 未实现</div>
+          <div class="popover-opt-sub">未实现</div>
+        </div>
+        <span class="popover-check"></span>
+      </div>
+
+      <div class="popover-sep"></div>
+      <p class="settings-label">连接</p>
+      <button id="menu-change-host" type="button" class="popover-option settings-row" title="更换电脑" aria-label="更换电脑" hidden>
+        <span>更换电脑地址</span>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>
+      </button>
+      <button id="disconnect" type="button" class="popover-option settings-row danger" title="退出配对" aria-label="退出配对">
+        <span>退出配对</span>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      </button>
+
+      <div class="popover-sep"></div>
+      <button id="popover-theme" type="button" class="popover-option settings-row">
+        <div>
+          <div class="popover-opt-title" id="popover-theme-text">切换深色外观</div>
+          <div class="popover-opt-sub">贴合 Gemini / Antigravity 深色阅读</div>
+        </div>
+      </button>
+      <button id="settings-clear-cache" type="button" class="popover-option settings-row">
+        <div>
+          <div class="popover-opt-title">清除本地缓存</div>
+          <div class="popover-opt-sub">重新从电脑载入 Codex 会话</div>
+        </div>
+      </button>
+      <p id="settings-feedback" class="settings-feedback" role="status" hidden></p>
+    </div>
+
+    <!-- CENTER GEMINI TASK STAGE -->
+    <main class="stage-pane">
+      <!-- Floating Liquid Glass Header -->
+      <header class="floating-header">
+        <div class="header-slot">
+          <button id="open-drawer-btn" type="button" class="glass-circle-btn liquid-glass mobile-menu-trigger" aria-label="打开任务与会话侧栏">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h11"/></svg>
+            <span id="drawer-notif-dot" class="notif-dot" hidden></span>
+          </button>
+        </div>
+
+        <!-- Center Engine Pill -->
+        <button id="engine-trigger" type="button" class="engine-pill-trigger liquid-glass" aria-haspopup="true" aria-expanded="false">
+          <span id="header-live-dot" class="live-dot"></span>
+          <span id="engine-label">Codex</span>
+          <svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+
+        <div class="header-slot">
+          <button id="header-new-btn" type="button" class="glass-circle-btn liquid-glass" aria-label="新任务" title="新任务">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+          </button>
+        </div>
+      </header>
+
+      <!-- Floating Glass Engine & Theme Popover -->
+      <div id="engine-popover" class="engine-popover liquid-glass-heavy" hidden>
+        <div id="engine-options"></div>
+        <div class="popover-field">
+          <label class="popover-field-label" for="model-select">模型</label>
+          <select id="model-select" class="popover-select"></select>
+        </div>
+        <div class="popover-field">
+          <label class="popover-field-label" for="effort-select">推理强度</label>
+          <select id="effort-select" class="popover-select"></select>
+        </div>
+        <select id="engine" class="sr-only-select" aria-describedby="engine-note"></select>
+        <p id="engine-note" class="popover-note"></p>
+      </div>
+
+      <!-- Offline Banner -->
+      <div id="offline-banner" class="offline-pill" role="status" aria-live="polite" hidden>
+        <span class="status-dot waiting"></span>
+        <span>电脑暂时离线，正在重连… 已保留当前内容</span>
+      </div>
+
+      <!-- Scrollable Stream Body -->
+      <div id="stream-scroll" class="stream-scroll">
+        <div class="stream-inner">
+          <!-- Greeting / New Task Home -->
+          <section id="empty" class="greeting-view">
+            <div class="greeting-orb" aria-hidden="true">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M7 17L17 7M7 7h10v10"/></svg>
+            </div>
+            <h2>想让电脑帮你做点什么？</h2>
+            <p>在下方输入任务，即可派发给电脑上的 Codex。任务进度与审批会在这里同步。</p>
+            <section id="workspace-stage" class="workspace-stage" aria-label="任务工作目录" hidden>
+              <div class="workspace-stage-head">
+                <span class="workspace-stage-label">任务工作目录</span>
+                <span id="workspace-stage-current" class="workspace-stage-current mono"></span>
+              </div>
+              <ul id="workspace-stage-list" class="workspace-stage-list" role="listbox" aria-label="任务工作目录"></ul>
+            </section>
+          </section>
+
+          <!-- Active Task Stream -->
+          <section id="task-detail" class="task-stream" hidden>
+            <div class="stream-header-meta">
+              <div class="meta-left">
+                <span id="task-engine" class="task-context-pill"></span>
+                <span id="task-time" class="meta-muted"></span>
+              </div>
+              <div class="meta-right">
+                <span id="task-status" class="status-tag" hidden></span>
+                <button id="open-task-thread" type="button" class="btn-inline" hidden>查看 Codex 会话 ↗</button>
+              </div>
+            </div>
+
+            <!-- Inline Approvals (Phone & 11" Tablet) -->
+            <div id="approvals-inline" class="approvals-slot" aria-label="待审批" hidden></div>
+
+            <!-- User Prompt Bubble -->
+            <div class="user-turn">
+              <div id="task-prompt" class="user-bubble"></div>
+            </div>
+
+            <!-- AI / Computer Execution Turn -->
+            <article class="ai-turn">
+              <div class="ai-turn-head">
+                <span class="ai-spark" aria-hidden="true">✦</span>
+                <span id="ai-turn-engine" class="ai-name">Codex</span>
+                <span id="progress" class="meta-muted" role="status"></span>
+              </div>
+
+              <p id="run-error" class="alert-banner danger" role="alert" hidden></p>
+              <p id="storage-error" class="alert-banner warning" role="alert" hidden></p>
+
+              <!-- Collapsible Commands -->
+              <details id="task-commands" class="steps-accordion" hidden>
+                <summary><span id="command-summary-label">电脑命令记录</span><span>展开 ▾</span></summary>
+                <div id="command-list" class="steps-body"></div>
+              </details>
+
+              <!-- Editorial Output -->
+              <pre id="output" class="ai-prose" tabindex="0" aria-label="工具回复" hidden></pre>
+
+              <div id="output-actions" class="ai-actions-row" hidden>
+                <button id="copy-output" type="button" class="subtle-act-btn">复制回复</button>
+              </div>
+            </article>
+          </section>
+
+          <!-- Active Codex Thread Stream -->
+          <section id="thread-detail" class="task-stream" hidden>
+            <div class="stream-header-meta">
+              <div class="meta-left">
+                <span id="detail-cwd" class="task-context-pill mono"></span>
+              </div>
+              <div class="meta-right">
+                <button id="return-from-thread" type="button" class="btn-inline" hidden>← 返回原任务</button>
+                <button id="new-from-thread" type="button" class="btn-inline" hidden>在此项目新建任务</button>
+                <button id="refresh-thread" type="button" class="btn-inline">刷新</button>
+              </div>
+            </div>
+            <h2 id="detail-title" class="thread-heading"></h2>
+            <p id="detail-feedback" class="list-state" role="status"></p>
+            <button id="more-turns" type="button" class="more-link" hidden>加载更早的消息</button>
+            <div id="timeline" class="timeline"></div>
+          </section>
+        </div>
+      </div>
+
+      <!-- Floating Liquid Glass Bottom Composer (Always Accessible!) -->
+      <div class="composer-dock">
+        <div class="composer-wrap">
+          <button id="scroll-latest" type="button" class="fab-latest liquid-glass" aria-label="回到最新输出" hidden>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>
+            <span id="scroll-latest-label">回到最新</span>
+          </button>
+
+          <p id="task-error" class="composer-error" role="alert" hidden></p>
+
+          <p id="composer-note" class="composer-note" role="status" hidden></p>
+
+          <!-- Original-Thread Delivery Notice -->
+          <div id="thread-delivery" class="thread-delivery" role="status" aria-live="polite" hidden>
+            <span id="thread-delivery-text" class="thread-delivery-text"></span>
+            <span id="thread-delivery-detail" class="thread-delivery-detail" hidden></span>
+            <button id="thread-delivery-draft" type="button" class="thread-delivery-action" hidden>取回草稿</button>
+            <button id="thread-delivery-desktop" type="button" class="thread-delivery-action" hidden>按电脑端设置再发</button>
+          </div>
+
+          <div id="questions-host" class="questions-host" role="region" aria-label="需要你回答的问题" hidden></div>
+
+          <form id="task-form" class="composer-capsule liquid-glass-heavy">
+            <div id="resume-banner" class="resume-banner" hidden>
+              <span class="resume-dot" aria-hidden="true"></span>
+              <span id="resume-banner-text">接续此会话</span>
+              <span id="thread-delivery-receipt" class="thread-delivery-receipt" role="status" aria-live="polite"></span>
+            </div>
+            <div id="composer-context" class="attached-context-row" hidden></div>
+            <div class="composer-row">
+              <textarea id="prompt" class="composer-input" rows="1" maxlength="12000" placeholder="给电脑上的 Codex 发指令…" required></textarea>
+              <button id="send" type="submit" class="composer-send" aria-label="发送任务">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="M5 12l7-7 7 7"/></svg>
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </main>
+
+    <!-- 13" WIDESCREEN NARROW APPROVAL RAIL -->
+    <aside id="approval-rail" class="approval-rail" aria-label="待审批侧栏" hidden>
+      <div class="rail-head">
+        <h3><span class="status-dot waiting"></span>待审批</h3>
+        <span id="rail-approval-count" class="rail-count">0</span>
+      </div>
+      <div id="approvals-rail" class="rail-body"></div>
+    </aside>
+  </div>
+</body>
+</html>
